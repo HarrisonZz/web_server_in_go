@@ -10,11 +10,16 @@ if [ -z "$(docker images -q $IMAGE_NAME)" ]; then
 fi
 
 if [ "$1" = "stop" ]; then
-  docker stop $CONTAINER_NAME 2>/dev/null || echo "container not running"
+  if docker ps -a --format '{{.Names}}' | grep -q "^${CONTAINER_NAME}\$"; then
+    docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1
+    echo "container '$CONTAINER_NAME' stopped and removed"
+  else
+    echo "container not found"
+  fi
   exit 0
 fi
 
-CID=$(docker run --rm -d \
+CID=$(docker run -d \
   --name $CONTAINER_NAME \
   -v "$(pwd)":/usr/src/app \
   -p $PORT:8080 \
