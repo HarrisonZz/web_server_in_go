@@ -7,9 +7,18 @@ import (
 	"os"
 	"os/signal"
 	"time"
-
+	"strings"
 	"github.com/gin-gonic/gin"
 )
+
+func Replyln(c *gin.Context, status int, msg string) {
+    // 確保每次輸出都有換行
+    if !strings.HasSuffix(msg, "\n") {
+        msg += "\n"
+    }
+    c.String(status, msg)
+}
+
 
 func main() {
 	// 讀取埠號（預設 8080）
@@ -19,8 +28,12 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Logger(), gin.Recovery())
 
+	r.NoRoute(func(c *gin.Context) {
+		Replyln(c, http.StatusNotFound, "404 page not found")
+	})
+
 	// 簡單路由
-	r.GET("/ping", func(c *gin.Context) { c.String(http.StatusOK, "pong\n") })
+	r.GET("/ping", func(c *gin.Context) { Replyln(c, http.StatusOK, "pong") })
 	// 健康檢查（給 K8s / LB）
 	r.GET("/healthz", func(c *gin.Context) { c.Status(http.StatusOK) })
 
