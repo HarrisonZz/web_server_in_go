@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 	"time"
+
 	"github.com/HarrisonZz/web_server_in_go/internal/server"
 )
 
@@ -52,4 +53,3 @@ func main() {
 	}
 	log.Println("server exiting")
 }
-

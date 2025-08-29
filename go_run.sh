@@ -6,7 +6,7 @@ PORT=8080
 
 if [ -z "$(docker images -q $IMAGE_NAME)" ]; then
   echo "image '$IMAGE_NAME' not found, will build it first:" && \
-  docker build -t $IMAGE_NAME .
+  docker build -t $IMAGE_NAME --target dev .
 fi
 
 if [ "$1" = "stop" ]; then
