@@ -8,6 +8,9 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/HarrisonZz/web_server_in_go/internal/cache"
+	"github.com/HarrisonZz/web_server_in_go/internal/deps"
+	"strconv"
 	"github.com/HarrisonZz/web_server_in_go/internal/server"
 )
 
@@ -19,9 +22,18 @@ func getenv(key, def string) string {
 }
 
 func main() {
-	// 讀取埠號（預設 8080）
+
 	port := getenv("PORT", "8080")
-	r := server.NewRouter()
+
+	addr := getenv("REDIS_ADDR", "127.0.0.1:6379")
+	pwd  := getenv("REDIS_PASSWORD", "")
+	dbS  := getenv("REDIS_DB", "0")
+	db, _ := strconv.Atoi(dbS)
+
+	cache := cache.NewRedisCache(addr, pwd, db)
+	defer cache.Close()
+	// 讀取埠號（預設 8080）
+	r := server.NewRouter(deps.Deps{Cache: cache})
 
 	// 服務（含合理超時）
 	srv := &http.Server{
