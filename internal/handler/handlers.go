@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/HarrisonZz/web_server_in_go/internal/deps"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
-	"github.com/HarrisonZz/web_server_in_go/internal/deps"
 )
 
 var getRoutes = map[string]gin.HandlerFunc{
@@ -43,7 +43,7 @@ func Replyln(c *gin.Context, status int, msg string) {
 func getOSRelease(c *gin.Context) {
 	const (
 		key = "sys:os-release"
-		ttl = 1 * time.Hour // 資訊幾乎不會變動，可設長一點
+		ttl = 2 * time.Hour // 資訊幾乎不會變動，可設長一點
 	)
 
 	cache := deps.CacheFrom(c)
@@ -97,18 +97,6 @@ func healthz(c *gin.Context) {
 		cpuPercent[0], memUsage.UsedPercent,
 	)
 	Replyln(c, http.StatusOK, msg)
-}
-
-func osInfo(c *gin.Context) {
-	data, err := os.ReadFile("/etc/os-release")
-	if err != nil {
-		Replyln(c, http.StatusInternalServerError, "read error: "+err.Error())
-		return
-	}
-	if len(data) == 0 || data[len(data)-1] != '\n' {
-		data = append(data, '\n')
-	}
-	c.Data(http.StatusOK, "text/plain; charset=utf-8", data)
 }
 
 func NoRoute(c *gin.Context) {
