@@ -2,15 +2,17 @@ package main
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"time"
 
+	"strconv"
+
 	"github.com/HarrisonZz/web_server_in_go/internal/cache"
 	"github.com/HarrisonZz/web_server_in_go/internal/deps"
-	"strconv"
+	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/HarrisonZz/web_server_in_go/internal/server"
 )
 
@@ -21,13 +23,28 @@ func getenv(key, def string) string {
 	return def
 }
 
+func setlog(path string) {
+
+	logPath := os.Getenv("LOG_PATH")
+	if logPath == "" {
+		logPath = "/var/log/app/app.log"
+	}
+
+}
+
 func main() {
+
+	logPath := "/home/harrison/.log/app.log"
+	if err := logger.Init(logPath); err != nil {
+		fmt.Printf("failed to init logger: %v\n", err)
+		os.Exit(1)
+	}
 
 	port := getenv("PORT", "8080")
 
 	addr := getenv("REDIS_ADDR", "127.0.0.1:6379")
-	pwd  := getenv("REDIS_PASSWORD", "")
-	dbS  := getenv("REDIS_DB", "0")
+	pwd := getenv("REDIS_PASSWORD", "")
+	dbS := getenv("REDIS_DB", "0")
 	db, _ := strconv.Atoi(dbS)
 
 	cache := cache.NewRedisCache(addr, pwd, db)
@@ -47,9 +64,11 @@ func main() {
 
 	// 啟動 HTTP（背景）
 	go func() {
-		log.Printf("listening on :%s", port)
+
+		logger.Info(fmt.Sprintf("listening on :%s", port))
+
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("listen: %v", err)
+			logger.Error(fmt.Sprintf("listen: %v", err))
 		}
 	}()
 
@@ -61,7 +80,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Printf("server forced to shutdown: %v", err)
+		logger.Error(fmt.Sprintf("server forced to shutdown: %v", err))
 	}
-	log.Println("server exiting")
+	logger.Info("server exiting")
 }

@@ -22,6 +22,7 @@ fi
 CID=$(docker run -d \
   --name $CONTAINER_NAME \
   -v "$(pwd)":/usr/src/app \
+  -v "$HOME\.log":/usr/src/.log \
   -p $PORT:8080 \
   -w /usr/src/app \
   $IMAGE_NAME)

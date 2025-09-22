@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/HarrisonZz/web_server_in_go/internal/deps"
+	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/gin-gonic/gin"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -41,6 +42,7 @@ func Replyln(c *gin.Context, status int, msg string) {
 }
 
 func getOSRelease(c *gin.Context) {
+	logger.Info("[GET] Get OS Release")
 	const (
 		key = "sys:os-release"
 		ttl = 2 * time.Hour // 資訊幾乎不會變動，可設長一點
@@ -74,12 +76,14 @@ func getOSRelease(c *gin.Context) {
 }
 
 func ping(c *gin.Context) {
+	logger.Info("[GET] Get Pong Response")
 	clientIP := c.ClientIP()
 	msg := fmt.Sprintf("pong from %s", clientIP)
 	Replyln(c, http.StatusOK, msg)
 }
 
 func healthz(c *gin.Context) {
+	logger.Info("[GET] Get Node Status")
 	cpuPercent, err := cpu.Percent(0, false)
 	if err != nil || len(cpuPercent) == 0 {
 		cpuPercent = []float64{0}
