@@ -14,35 +14,79 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 )
 
-var getRoutes = map[string]gin.HandlerFunc{
-	"/ping":    ping,
-	"/healthz": healthz,
-	"/os":      getOSRelease,
+var routes = []Route{
+	&pingRoute{},
+	&healthzRoute{},
+	&osInfoRoute{},
 }
 
 func GetRoutes() map[string]gin.HandlerFunc {
 	// 回傳副本，防止外部修改
-	routes := make(map[string]gin.HandlerFunc)
-	for key, value := range getRoutes {
-		routes[key] = value
+	out := make(map[string]gin.HandlerFunc, len(routes))
+	for _, r := range routes {
+
+		if r.Method() == http.MethodGet {
+			out[r.Path()] = r.Handle
+		}
 	}
-	return routes
+	return out
 }
 
-func RegisterRoute(path string, handler gin.HandlerFunc) {
-	getRoutes[path] = handler
+type Route interface {
+	Method() string
+	Path() string
+	Handle(*gin.Context)
 }
 
-func Replyln(c *gin.Context, status int, msg string) {
-	// 確保每次輸出都有換行
-	if !strings.HasSuffix(msg, "\n") {
-		msg += "\n"
+type pingRoute struct {
+	response string
+}
+
+func (r *pingRoute) Method() string { return http.MethodGet }
+func (r *pingRoute) Path() string   { return "/ping" }
+func (r *pingRoute) Handle(c *gin.Context) {
+	logger.Info("[" + r.Method() + "] Pong")
+
+	r.response = fmt.Sprintf("pong from %s", c.ClientIP())
+	Replyln(c, http.StatusOK, r.response)
+}
+
+type healthzRoute struct {
+	response string
+}
+
+func (r *healthzRoute) Method() string { return http.MethodGet }
+func (r *healthzRoute) Path() string   { return "/healthz" }
+func (r *healthzRoute) Handle(c *gin.Context) {
+	logger.Info("[" + r.Method() + "] Hardware Status of Server")
+	cpuPercent, err := cpu.Percent(0, false)
+	if err != nil || len(cpuPercent) == 0 {
+		cpuPercent = []float64{0}
 	}
-	c.String(status, msg)
+
+	memUsage, err := mem.VirtualMemory()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to get memory usage",
+		})
+		return
+	}
+
+	r.response = fmt.Sprintf("CPU Percentage = %.2f%%\nMemory Usage = %.2f%%",
+		cpuPercent[0], memUsage.UsedPercent,
+	)
+	Replyln(c, http.StatusOK, r.response)
 }
 
-func getOSRelease(c *gin.Context) {
-	logger.Info("[GET] Get OS Release")
+type osInfoRoute struct {
+	response []byte
+	err      error
+}
+
+func (r *osInfoRoute) Method() string { return http.MethodGet }
+func (r *osInfoRoute) Path() string   { return "/os" }
+func (r *osInfoRoute) Handle(c *gin.Context) {
+	logger.Info("[" + r.Method() + "] OS Infomation")
 	const (
 		key = "sys:os-release"
 		ttl = 2 * time.Hour // 資訊幾乎不會變動，可設長一點
@@ -60,49 +104,46 @@ func getOSRelease(c *gin.Context) {
 	}
 
 	// 2. MISS → 讀檔
-	data, err := os.ReadFile("/etc/os-release")
-	if err != nil {
-		c.String(http.StatusInternalServerError, "read error: %v", err)
+	r.response, r.err = os.ReadFile("/etc/os-release")
+	if r.err != nil {
+		c.String(http.StatusInternalServerError, "read error: %v", r.err)
 		return
 	}
 
 	// 3. 存回 Redis（失敗不阻斷）
 	if cache != nil {
-		_ = cache.Set(c, key, data, ttl)
+		_ = cache.Set(c, key, r.response, ttl)
 	}
 
 	c.Header("X-Cache", "MISS")
-	c.Data(http.StatusOK, "text/plain", data)
+	c.Data(http.StatusOK, "text/plain", r.response)
 }
 
-func ping(c *gin.Context) {
-	logger.Info("[GET] Get Pong Response")
-	clientIP := c.ClientIP()
-	msg := fmt.Sprintf("pong from %s", clientIP)
-	Replyln(c, http.StatusOK, msg)
+type routeWrapper struct {
+	path    string
+	handler gin.HandlerFunc
 }
 
-func healthz(c *gin.Context) {
-	logger.Info("[GET] Get Node Status")
-	cpuPercent, err := cpu.Percent(0, false)
-	if err != nil || len(cpuPercent) == 0 {
-		cpuPercent = []float64{0}
-	}
+func (w *routeWrapper) Method() string { return http.MethodGet }
+func (w *routeWrapper) Path() string   { return w.path }
+func (w *routeWrapper) Handle(c *gin.Context) {
+	w.handler(c)
+}
 
-	memUsage, err := mem.VirtualMemory()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to get memory usage",
-		})
-		return
-	}
+func RegisterRoute(path string, handler gin.HandlerFunc) {
+	routes = append(routes, &routeWrapper{path: path, handler: handler})
+}
 
-	msg := fmt.Sprintf("CPU Percentage = %.2f%%\nMemory Usage = %.2f%%",
-		cpuPercent[0], memUsage.UsedPercent,
-	)
-	Replyln(c, http.StatusOK, msg)
+func Replyln(c *gin.Context, status int, msg string) {
+	// 確保每次輸出都有換行
+	if !strings.HasSuffix(msg, "\n") {
+		msg += "\n"
+	}
+	c.String(status, msg)
 }
 
 func NoRoute(c *gin.Context) {
+	path := c.Request.URL.Path
+	logger.Error(fmt.Sprintf("No route rule for path: %s", path))
 	Replyln(c, http.StatusNotFound, "404 page not found")
 }

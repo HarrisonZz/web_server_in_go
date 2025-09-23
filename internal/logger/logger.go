@@ -23,7 +23,7 @@ func Init(logPath string) error {
 	}
 
 	// 建立 logger
-	Logger = log.New(f, "APP_LOG: ", log.LstdFlags)
+	Logger = log.New(f, "APP_LOG: ", log.LstdFlags|log.Llongfile)
 	return nil
 }
 

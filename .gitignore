@@ -1,0 +1,6 @@
+# 忽略 .log/ 下所有 .log 與 .db（含子資料夾）
+fluent_bit/.log/**/*.log
+fluent_bit/.log/**/*.db*
+
+# 保留資料夾本身（可選）
+fluent_bit/!.log/

@@ -23,22 +23,23 @@ func getenv(key, def string) string {
 	return def
 }
 
-func setlog(path string) {
+func setlog() {
 
-	logPath := os.Getenv("LOG_PATH")
-	if logPath == "" {
-		logPath = "/var/log/app/app.log"
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(err)
 	}
 
-}
-
-func main() {
-
-	logPath := "/home/harrison/.log/app.log"
+	logPath := wd + "/fluent_bit/.log/app/app.log"
 	if err := logger.Init(logPath); err != nil {
 		fmt.Printf("failed to init logger: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func main() {
+
+	setlog()
 
 	port := getenv("PORT", "8080")
 
