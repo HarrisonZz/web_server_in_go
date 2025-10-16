@@ -1,17 +1,16 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
 	"github.com/HarrisonZz/web_server_in_go/internal/deps"
+	"github.com/HarrisonZz/web_server_in_go/internal/kubernetes"
 	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/gin-gonic/gin"
-	"github.com/shirou/gopsutil/v3/cpu"
-	"github.com/shirou/gopsutil/v3/mem"
 )
 
 var routes = []Route{
@@ -47,7 +46,7 @@ func (r *pingRoute) Path() string   { return "/ping" }
 func (r *pingRoute) Handle(c *gin.Context) {
 	logger.Info("[" + r.Method() + "] Pong")
 
-	r.response = fmt.Sprintf("pong from %s", c.ClientIP())
+	r.response = fmt.Sprintf("pong from %s", kubernetes.NodeInfo.InternalIP)
 	Replyln(c, http.StatusOK, r.response)
 }
 
@@ -59,22 +58,13 @@ func (r *healthzRoute) Method() string { return http.MethodGet }
 func (r *healthzRoute) Path() string   { return "/healthz" }
 func (r *healthzRoute) Handle(c *gin.Context) {
 	logger.Info("[" + r.Method() + "] Hardware Status of Server")
-	cpuPercent, err := cpu.Percent(0, false)
-	if err != nil || len(cpuPercent) == 0 {
-		cpuPercent = []float64{0}
-	}
-
-	memUsage, err := mem.VirtualMemory()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to get memory usage",
-		})
-		return
-	}
-
-	r.response = fmt.Sprintf("CPU Percentage = %.2f%%\nMemory Usage = %.2f%%",
-		cpuPercent[0], memUsage.UsedPercent,
+	r.response = fmt.Sprintf(
+		"Node: %s\nMemory: %s\nCPU: %s",
+		kubernetes.NodeInfo.Name,
+		kubernetes.NodeInfo.Memory,
+		kubernetes.NodeInfo.CPU,
 	)
+
 	Replyln(c, http.StatusOK, r.response)
 }
 
@@ -88,7 +78,7 @@ func (r *osInfoRoute) Path() string   { return "/os" }
 func (r *osInfoRoute) Handle(c *gin.Context) {
 	logger.Info("[" + r.Method() + "] OS Infomation")
 	const (
-		key = "sys:os-release"
+		key = "sys:os-info"
 		ttl = 2 * time.Hour // 資訊幾乎不會變動，可設長一點
 	)
 
@@ -104,19 +94,26 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 	}
 
 	// 2. MISS → 讀檔
-	r.response, r.err = os.ReadFile("/etc/os-release")
-	if r.err != nil {
-		c.String(http.StatusInternalServerError, "read error: %v", r.err)
-		return
+	data := gin.H{
+		"node": kubernetes.NodeInfo.Name,
+		"os": gin.H{
+			"architecture":    kubernetes.NodeInfo.Arch,
+			"operatingSystem": kubernetes.NodeInfo.OS,
+			"osImage":         kubernetes.NodeInfo.OSImage,
+			"kernelVersion":   kubernetes.NodeInfo.Kernel,
+		},
 	}
+	c.IndentedJSON(200, data)
 
 	// 3. 存回 Redis（失敗不阻斷）
 	if cache != nil {
-		_ = cache.Set(c, key, r.response, ttl)
+		jsonBytes, err := json.Marshal(data)
+		if err == nil {
+			_ = cache.Set(c, key, jsonBytes, ttl)
+		}
 	}
 
 	c.Header("X-Cache", "MISS")
-	c.Data(http.StatusOK, "text/plain", r.response)
 }
 
 type routeWrapper struct {
