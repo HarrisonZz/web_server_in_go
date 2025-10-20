@@ -25,12 +25,15 @@ func getenv(key, def string) string {
 
 func setlog() {
 
-	wd, err := os.Getwd()
-	if err != nil {
-		panic(err)
+	logPath := os.Getenv("LOG_PATH")
+	if logPath == "" {
+		wd, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		logPath = wd + "/fluent_bit/.log/app/app.log"
 	}
 
-	logPath := wd + "/fluent_bit/.log/app/app.log"
 	if err := logger.Init(logPath); err != nil {
 		fmt.Printf("failed to init logger: %v\n", err)
 		os.Exit(1)
