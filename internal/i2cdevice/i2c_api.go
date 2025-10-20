@@ -29,18 +29,16 @@ var (
 	mu     sync.Mutex
 )
 
-func InitI2C() error {
+func InitI2C() {
+
+	logger.Info("I2C API initializing")
+
 	var err error
 	i2cDev, err = i2c.Open(&i2c.Devfs{Dev: "/dev/i2c-2"}, stm32Addr)
-	return err
-}
-
-func init() {
-
-	if err := InitI2C(); err != nil {
+	if err != nil {
+		logger.Error("I2C Bus Open Failed !")
 		return
 	}
-
 	if err := probeI2CDevice(i2cDev); err == nil {
 
 		handler.RegisterRoute(http.MethodPost, "/led", ledHandler)

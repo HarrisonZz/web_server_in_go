@@ -12,6 +12,7 @@ import (
 
 	"github.com/HarrisonZz/web_server_in_go/internal/cache"
 	"github.com/HarrisonZz/web_server_in_go/internal/deps"
+	"github.com/HarrisonZz/web_server_in_go/internal/i2cdevice"
 	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/HarrisonZz/web_server_in_go/internal/server"
 )
@@ -21,6 +22,12 @@ func getenv(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func init() {
+
+	setlog()
+	i2cdevice.InitI2C()
 }
 
 func setlog() {
@@ -41,8 +48,6 @@ func setlog() {
 }
 
 func main() {
-
-	setlog()
 
 	port := getenv("PORT", "8080")
 
