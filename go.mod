@@ -5,6 +5,7 @@ go 1.24.6
 require (
 	github.com/gin-gonic/gin v1.9.0
 	github.com/redis/go-redis/v9 v9.13.0
+	golang.org/x/exp v0.0.0-20251017212417-90e834f514db
 	k8s.io/api v0.34.1
 	k8s.io/apimachinery v0.34.1
 	k8s.io/client-go v0.34.1

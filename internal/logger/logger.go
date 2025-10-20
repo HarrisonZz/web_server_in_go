@@ -40,3 +40,9 @@ func Error(msg string) {
 		Logger.Println("[ERROR]", msg)
 	}
 }
+
+func Warm(msg string) {
+	if Logger != nil {
+		Logger.Println("[Warm]", msg)
+	}
+}

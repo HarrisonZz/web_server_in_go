@@ -103,6 +103,8 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 			"kernelVersion":   kubernetes.NodeInfo.Kernel,
 		},
 	}
+
+	c.Header("X-Cache", "MISS")
 	c.IndentedJSON(200, data)
 
 	// 3. 存回 Redis（失敗不阻斷）
@@ -112,23 +114,22 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 			_ = cache.Set(c, key, jsonBytes, ttl)
 		}
 	}
-
-	c.Header("X-Cache", "MISS")
 }
 
 type routeWrapper struct {
+	method  string
 	path    string
 	handler gin.HandlerFunc
 }
 
-func (w *routeWrapper) Method() string { return http.MethodGet }
+func (w *routeWrapper) Method() string { return w.method }
 func (w *routeWrapper) Path() string   { return w.path }
 func (w *routeWrapper) Handle(c *gin.Context) {
 	w.handler(c)
 }
 
-func RegisterRoute(path string, handler gin.HandlerFunc) {
-	routes = append(routes, &routeWrapper{path: path, handler: handler})
+func RegisterRoute(method string, path string, handler gin.HandlerFunc) {
+	routes = append(routes, &routeWrapper{method: method, path: path, handler: handler})
 }
 
 func Replyln(c *gin.Context, status int, msg string) {
