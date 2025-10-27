@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/HarrisonZz/web_server_in_go/internal/handler"
 	"github.com/HarrisonZz/web_server_in_go/internal/logger"
@@ -102,12 +103,19 @@ func handleLedQuery(c *gin.Context) {
 }
 
 func handleLedSet(c *gin.Context) {
-
+	start := time.Now()
 	var req struct {
 		State string `json:"state"`
 	}
 
 	if err := c.BindJSON(&req); err != nil {
+		logger.Warn(fmt.Sprintf(
+			"[LED] %s invalid JSON from=%s error=%v",
+			c.FullPath(),
+			c.ClientIP(),
+			err,
+		))
+
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid json"})
 		return
 	}
@@ -122,16 +130,43 @@ func handleLedSet(c *gin.Context) {
 		data = LED_OFF
 	default:
 		c.JSON(http.StatusBadRequest, gin.H{"error": "state must be 'on' or 'off'"})
+
+		logger.Warn(fmt.Sprintf(
+			"[LED] %s invalid state='%s' from=%s",
+			c.FullPath(),
+			state,
+			c.ClientIP(),
+		))
 		return
 	}
+
+	logger.Info(fmt.Sprintf(
+		"[LED] Request received state=%s from=%s",
+		state,
+		c.ClientIP(),
+	))
 
 	mu.Lock()
 	defer mu.Unlock()
 
 	if err := i2cDev.WriteReg(LedCtrl, []byte{data}); err != nil {
+		logger.Error(fmt.Sprintf(
+			"[LED] WriteReg failed state=%s error=%v from=%s",
+			state,
+			err,
+			c.ClientIP(),
+		))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("I2C write failed: %v", err)})
 		return
 	}
+	elapsed := time.Since(start)
+
+	logger.Info(fmt.Sprintf(
+		"[LED] State changed to %s via I2C duration=%v from=%s",
+		state,
+		elapsed,
+		c.ClientIP(),
+	))
 
 	c.JSON(http.StatusOK, gin.H{"LED Status set": state})
 }

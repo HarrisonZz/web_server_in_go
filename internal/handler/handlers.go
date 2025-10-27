@@ -44,39 +44,79 @@ type pingRoute struct {
 func (r *pingRoute) Method() string { return http.MethodGet }
 func (r *pingRoute) Path() string   { return "/ping" }
 func (r *pingRoute) Handle(c *gin.Context) {
-	logger.Info("[" + r.Method() + "] Pong")
+	start := time.Now()
 
 	r.response = fmt.Sprintf("pong from %s", kubernetes.NodeInfo.InternalIP)
+	c.Header("Content-Type", "text/plain")
+
 	Replyln(c, http.StatusOK, r.response)
+	elapsed := time.Since(start)
+	logger.Info(fmt.Sprintf(
+		"[PING] %s %s from=%s response=%s duration=%v",
+		r.Method(),
+		c.FullPath(),
+		c.ClientIP(),
+		kubernetes.NodeInfo.InternalIP,
+		elapsed,
+	))
+
+}
+
+type HealthResponse struct {
+	Node   string `json:"node"`
+	Memory string `json:"memory"`
+	CPU    string `json:"cpu"`
 }
 
 type healthzRoute struct {
-	response string
+	response HealthResponse
 }
 
 func (r *healthzRoute) Method() string { return http.MethodGet }
 func (r *healthzRoute) Path() string   { return "/healthz" }
 func (r *healthzRoute) Handle(c *gin.Context) {
-	logger.Info("[" + r.Method() + "] Hardware Status of Server")
-	r.response = fmt.Sprintf(
-		"Node: %s\nMemory: %s\nCPU: %s",
-		kubernetes.NodeInfo.Name,
-		kubernetes.NodeInfo.Memory,
-		kubernetes.NodeInfo.CPU,
-	)
+	start := time.Now()
+	logger.Info(fmt.Sprintf(
+		"[START] %s %s from %s",
+		r.Method(),
+		c.FullPath(),
+		c.ClientIP(),
+	))
 
-	Replyln(c, http.StatusOK, r.response)
+	r.response = HealthResponse{
+		Node:   kubernetes.NodeInfo.Name,
+		Memory: kubernetes.NodeInfo.Memory,
+		CPU:    kubernetes.NodeInfo.CPU,
+	}
+
+	c.JSON(http.StatusOK, r.response)
+
+	elapsed := time.Since(start)
+	logger.Info(fmt.Sprintf(
+		"[END] %s %s status=%d duration=%v",
+		r.Method(),
+		c.FullPath(),
+		http.StatusOK,
+		elapsed,
+	))
 }
 
 type osInfoRoute struct {
-	response []byte
-	err      error
+	response map[string]any
 }
 
 func (r *osInfoRoute) Method() string { return http.MethodGet }
 func (r *osInfoRoute) Path() string   { return "/os" }
 func (r *osInfoRoute) Handle(c *gin.Context) {
-	logger.Info("[" + r.Method() + "] OS Infomation")
+	start := time.Now()
+	cacheStatus := "Unknown"
+	logger.Info(fmt.Sprintf(
+		"[START] %s %s from %s",
+		r.Method(),
+		c.FullPath(),
+		c.ClientIP(),
+	))
+
 	const (
 		key = "sys:os-info"
 		ttl = 2 * time.Hour // 資訊幾乎不會變動，可設長一點
@@ -87,33 +127,41 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 	// 1. 嘗試讀 Redis
 	if cache != nil {
 		if b, ok, err := cache.Get(c, key); err == nil && ok {
-			c.Header("X-Cache", "HIT")
+			cacheStatus = "Hit"
+			c.Header("X-Cache", cacheStatus)
 			c.Data(http.StatusOK, "text/plain", b)
-			return
+		} else { // 2. MISS → 讀檔
+			cacheStatus = "Miss"
+			r.response = gin.H{
+				"node": kubernetes.NodeInfo.Name,
+				"os": gin.H{
+					"architecture":    kubernetes.NodeInfo.Arch,
+					"operatingSystem": kubernetes.NodeInfo.OS,
+					"osImage":         kubernetes.NodeInfo.OSImage,
+					"kernelVersion":   kubernetes.NodeInfo.Kernel,
+				},
+			}
+			c.Header("X-Cache", cacheStatus)
+			c.IndentedJSON(200, r.response)
+
+			jsonBytes, err := json.Marshal(r.response)
+			if err == nil {
+				_ = cache.Set(c, key, jsonBytes, ttl)
+			} else {
+				logger.Warn(fmt.Sprintf("Cache store failed for key=%s: %v", key, err))
+			}
 		}
 	}
 
-	// 2. MISS → 讀檔
-	data := gin.H{
-		"node": kubernetes.NodeInfo.Name,
-		"os": gin.H{
-			"architecture":    kubernetes.NodeInfo.Arch,
-			"operatingSystem": kubernetes.NodeInfo.OS,
-			"osImage":         kubernetes.NodeInfo.OSImage,
-			"kernelVersion":   kubernetes.NodeInfo.Kernel,
-		},
-	}
-
-	c.Header("X-Cache", "MISS")
-	c.IndentedJSON(200, data)
-
-	// 3. 存回 Redis（失敗不阻斷）
-	if cache != nil {
-		jsonBytes, err := json.Marshal(data)
-		if err == nil {
-			_ = cache.Set(c, key, jsonBytes, ttl)
-		}
-	}
+	elapsed := time.Since(start)
+	logger.Info(fmt.Sprintf(
+		"[END] %s %s status=%d duration=%v cache=%s",
+		r.Method(),
+		c.FullPath(),
+		http.StatusOK,
+		elapsed,
+		cacheStatus,
+	))
 }
 
 type routeWrapper struct {
