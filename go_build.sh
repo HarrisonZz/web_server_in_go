@@ -55,7 +55,7 @@ function build_image() {
   docker push "$DOCKER_HUB/$IMAGE_NAME:latest"
 
   echo "[🧹] Cleaning up tarball..."
-  rm -f "$TAR_FILE"
+  rm -f image.tar
 
   echo "[✔] Image pushed: $FULL_TAG"
   echo "[✔] Also tagged as :latest"
