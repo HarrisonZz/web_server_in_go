@@ -38,14 +38,15 @@ function build_image() {
     # --push \
     # -t "$DOCKER_HUB/$IMAGE_NAME:latest" .
   
-  echo "[✔] Image built successfully. Exported to $TAR_FILE"
+  echo "[✔] Image built successfully. Exported to image.tar"
   
   echo "[🔍] Running Trivy scan before push..."
   
   docker run --rm -v $PWD:/scan aquasec/trivy:latest image \
   --exit-code 1 \
   --severity HIGH,CRITICAL \
-  --input /scan/image.tar
+  --input /scan/image.tar \
+  --format table --output /scan/report.txt
 
   echo "[✔] Trivy scan passed. Pushing image..."
   docker push "$FULL_TAG"
