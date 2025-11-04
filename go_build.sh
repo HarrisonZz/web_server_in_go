@@ -49,6 +49,7 @@ function build_image() {
   --format table --output /scan/report.txt
 
   echo "[✔] Trivy scan passed. Pushing image..."
+  docker load -i image.tar
   docker push "$FULL_TAG"
   docker tag "$FULL_TAG" "$DOCKER_HUB/$IMAGE_NAME:latest"
   docker push "$DOCKER_HUB/$IMAGE_NAME:latest"
