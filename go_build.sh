@@ -33,9 +33,27 @@ function build_image() {
   docker buildx build \
     --platform linux/arm/v7 \
     -f Dockerfile.runtime \
-    --push \
-    -t "$FULL_TAG" \
-    -t "$DOCKER_HUB/$IMAGE_NAME:latest" .
+    -o type=docker,dest=image.tar \
+    -t "$FULL_TAG" .
+    # --push \
+    # -t "$DOCKER_HUB/$IMAGE_NAME:latest" .
+  
+  echo "[✔] Image built successfully. Exported to $TAR_FILE"
+  
+  echo "[🔍] Running Trivy scan before push..."
+  
+  docker run --rm -v $PWD:/scan aquasec/trivy:latest image \
+  --exit-code 1 \
+  --severity HIGH,CRITICAL \
+  --input /scan/image.tar
+
+  echo "[✔] Trivy scan passed. Pushing image..."
+  docker push "$FULL_TAG"
+  docker tag "$FULL_TAG" "$DOCKER_HUB/$IMAGE_NAME:latest"
+  docker push "$DOCKER_HUB/$IMAGE_NAME:latest"
+
+  echo "[🧹] Cleaning up tarball..."
+  rm -f "$TAR_FILE"
 
   echo "[✔] Image pushed: $FULL_TAG"
   echo "[✔] Also tagged as :latest"
