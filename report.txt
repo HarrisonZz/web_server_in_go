@@ -1,0 +1,44 @@
+
+Report Summary
+
+┌────────┬──────────┬─────────────────┬─────────┐
+│ Target │   Type   │ Vulnerabilities │ Secrets │
+├────────┼──────────┼─────────────────┼─────────┤
+│ app    │ gobinary │        6        │    -    │
+└────────┴──────────┴─────────────────┴─────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+
+app (gobinary)
+==============
+Total: 6 (HIGH: 6, CRITICAL: 0)
+
+┌─────────┬────────────────┬──────────┬────────┬───────────────────┬────────────────┬──────────────────────────────────────────────────────────────┐
+│ Library │ Vulnerability  │ Severity │ Status │ Installed Version │ Fixed Version  │                            Title                             │
+├─────────┼────────────────┼──────────┼────────┼───────────────────┼────────────────┼──────────────────────────────────────────────────────────────┤
+│ stdlib  │ CVE-2025-47912 │ HIGH     │ fixed  │ v1.24.6           │ 1.24.8, 1.25.2 │ The Parse function permits values other than IPv6 addresses  │
+│         │                │          │        │                   │                │ to be incl...                                                │
+│         │                │          │        │                   │                │ https://avd.aquasec.com/nvd/cve-2025-47912                   │
+│         ├────────────────┤          │        │                   │                ├──────────────────────────────────────────────────────────────┤
+│         │ CVE-2025-58183 │          │        │                   │                │ tar.Reader does not set a maximum size on the number of      │
+│         │                │          │        │                   │                │ sparse...                                                    │
+│         │                │          │        │                   │                │ https://avd.aquasec.com/nvd/cve-2025-58183                   │
+│         ├────────────────┤          │        │                   │                ├──────────────────────────────────────────────────────────────┤
+│         │ CVE-2025-58186 │          │        │                   │                │ Despite HTTP headers having a default limit of 1MB, the      │
+│         │                │          │        │                   │                │ number of...                                                 │
+│         │                │          │        │                   │                │ https://avd.aquasec.com/nvd/cve-2025-58186                   │
+│         ├────────────────┤          │        │                   ├────────────────┼──────────────────────────────────────────────────────────────┤
+│         │ CVE-2025-58187 │          │        │                   │ 1.24.9, 1.25.3 │ Due to the design of the name constraint checking algorithm, │
+│         │                │          │        │                   │                │ the proce...                                                 │
+│         │                │          │        │                   │                │ https://avd.aquasec.com/nvd/cve-2025-58187                   │
+│         ├────────────────┤          │        │                   ├────────────────┼──────────────────────────────────────────────────────────────┤
+│         │ CVE-2025-58188 │          │        │                   │ 1.24.8, 1.25.2 │ Validating certificate chains which contain DSA public keys  │
+│         │                │          │        │                   │                │ can cause ......                                             │
+│         │                │          │        │                   │                │ https://avd.aquasec.com/nvd/cve-2025-58188                   │
+│         ├────────────────┤          │        │                   │                ├──────────────────────────────────────────────────────────────┤
+│         │ CVE-2025-61724 │          │        │                   │                │ The Reader.ReadResponse function constructs a response       │
+│         │                │          │        │                   │                │ string through ...                                           │
+│         │                │          │        │                   │                │ https://avd.aquasec.com/nvd/cve-2025-61724                   │
+└─────────┴────────────────┴──────────┴────────┴───────────────────┴────────────────┴──────────────────────────────────────────────────────────────┘
