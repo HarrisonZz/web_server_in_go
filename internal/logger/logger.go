@@ -67,12 +67,12 @@ func Info(msg string) {
 // Error 寫入 error log
 func Error(msg string) {
 
-	input(msg, "info")
+	input(msg, "error")
 
 }
 
 func Warn(msg string) {
 
-	input(msg, "info")
+	input(msg, "warm")
 
 }
