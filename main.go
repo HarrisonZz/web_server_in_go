@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"syscall"
 	"time"
 
 	"strconv"
@@ -15,6 +16,7 @@ import (
 	"github.com/HarrisonZz/web_server_in_go/internal/i2cdevice"
 	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/HarrisonZz/web_server_in_go/internal/server"
+	"github.com/HarrisonZz/web_server_in_go/internal/telemetry"
 )
 
 func getenv(key, def string) string {
@@ -59,6 +61,29 @@ func main() {
 	cache := cache.NewRedisCache(addr, pwd, db)
 	defer cache.Close()
 	// 讀取埠號（預設 8080）
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// 1) 初始化 OTel
+	shutdown, err := telemetry.Init(ctx, telemetry.Config{
+		ServiceName: "web-server-in-go",
+		Endpoint:    "otel-collector:4318", // 之後接你的 Collector Service
+		Insecure:    true,                  // Collector 沒 TLS 就 true
+	})
+	if err != nil {
+		logger.Error(fmt.Sprintf("failed to init telemetry: %v", err))
+		return
+	} else {
+		defer func() {
+			sctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := shutdown(sctx); err != nil {
+				logger.Error(fmt.Sprintf("otel shutdown error: %v", err))
+			}
+		}()
+	}
+
 	r := server.NewRouter(deps.Deps{Cache: cache})
 
 	// 服務（含合理超時）
@@ -81,14 +106,12 @@ func main() {
 		}
 	}()
 
-	// 捕捉 Ctrl+C / 容器停止訊號，優雅關機
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
+	<-ctx.Done()
+	logger.Info("shutdown signal received")
 
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	sctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := srv.Shutdown(ctx); err != nil {
+	if err := srv.Shutdown(sctx); err != nil {
 		logger.Error(fmt.Sprintf("server forced to shutdown: %v", err))
 	}
 	logger.Info("server exiting")

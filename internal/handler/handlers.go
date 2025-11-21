@@ -11,6 +11,8 @@ import (
 	"github.com/HarrisonZz/web_server_in_go/internal/kubernetes"
 	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 var routes = []Route{
@@ -45,6 +47,7 @@ func (r *pingRoute) Method() string { return http.MethodGet }
 func (r *pingRoute) Path() string   { return "/ping" }
 func (r *pingRoute) Handle(c *gin.Context) {
 	start := time.Now()
+	span := trace.SpanFromContext(c.Request.Context())
 
 	r.response = fmt.Sprintf("pong from %s", kubernetes.NodeInfo.InternalIP)
 	c.Header("Content-Type", "text/plain")
@@ -59,7 +62,9 @@ func (r *pingRoute) Handle(c *gin.Context) {
 		kubernetes.NodeInfo.InternalIP,
 		elapsed,
 	))
-
+	span.SetAttributes(
+		attribute.String("node.ip", kubernetes.NodeInfo.InternalIP),
+	)
 }
 
 type HealthResponse struct {
@@ -76,6 +81,8 @@ func (r *healthzRoute) Method() string { return http.MethodGet }
 func (r *healthzRoute) Path() string   { return "/healthz" }
 func (r *healthzRoute) Handle(c *gin.Context) {
 	start := time.Now()
+	span := trace.SpanFromContext(c.Request.Context())
+
 	logger.Info(fmt.Sprintf(
 		"[START] %s %s from %s",
 		r.Method(),
@@ -99,6 +106,10 @@ func (r *healthzRoute) Handle(c *gin.Context) {
 		http.StatusOK,
 		elapsed,
 	))
+
+	span.SetAttributes(
+		attribute.String("node.ip", kubernetes.NodeInfo.InternalIP),
+	)
 }
 
 type osInfoRoute struct {
@@ -110,6 +121,9 @@ func (r *osInfoRoute) Path() string   { return "/os" }
 func (r *osInfoRoute) Handle(c *gin.Context) {
 	start := time.Now()
 	cacheStatus := "Unknown"
+
+	span := trace.SpanFromContext(c.Request.Context())
+
 	logger.Info(fmt.Sprintf(
 		"[START] %s %s from %s",
 		r.Method(),
@@ -128,10 +142,13 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 	if cache != nil {
 		if b, ok, err := cache.Get(c, key); err == nil && ok {
 			cacheStatus = "Hit"
+			span.SetAttributes(attribute.String("cache.status", "hit"))
 			c.Header("X-Cache", cacheStatus)
 			c.Data(http.StatusOK, "text/plain", b)
 		} else { // 2. MISS → 讀檔
 			cacheStatus = "Miss"
+			span.SetAttributes(attribute.String("cache.status", "miss"))
+
 			r.response = gin.H{
 				"node": kubernetes.NodeInfo.Name,
 				"os": gin.H{
@@ -162,6 +179,12 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 		elapsed,
 		cacheStatus,
 	))
+
+	span.SetAttributes(
+		attribute.String("node.name", kubernetes.NodeInfo.Name),
+		attribute.String("cache.status", cacheStatus),
+		attribute.String("http.route", c.FullPath()),
+	)
 }
 
 type routeWrapper struct {
