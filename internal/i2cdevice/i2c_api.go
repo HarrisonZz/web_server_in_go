@@ -164,7 +164,7 @@ func handleLedSet(c *gin.Context) {
 
 	if err := i2cDev.WriteReg(LedCtrl, []byte{data}); err != nil {
 		span.AddEvent("i2c.write_error", trace.WithAttributes(
-			attribute.String("err", err.Error()),
+			attribute.String("error", err.Error()),
 		))
 		logger.Error(fmt.Sprintf(
 			"[LED] WriteReg failed state=%s error=%v from=%s",

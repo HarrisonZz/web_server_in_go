@@ -145,6 +145,10 @@ func (r *osInfoRoute) Handle(c *gin.Context) {
 			span.SetAttributes(attribute.String("cache.status", "hit"))
 			c.Header("X-Cache", cacheStatus)
 			c.Data(http.StatusOK, "text/plain", b)
+		} else if err != nil {
+			span.AddEvent("redis.error", trace.WithAttributes(
+				attribute.String("error", err.Error()),
+			))
 		} else { // 2. MISS → 讀檔
 			cacheStatus = "Miss"
 			span.SetAttributes(attribute.String("cache.status", "miss"))
