@@ -68,8 +68,8 @@ func main() {
 	// 1) 初始化 OTel
 	shutdown, err := telemetry.Init(ctx, telemetry.Config{
 		ServiceName: "web-server-in-go",
-		Endpoint:    "otel-collector:4318", // 之後接你的 Collector Service
-		Insecure:    true,                  // Collector 沒 TLS 就 true
+		Endpoint:    "otel-collector-opentelemetry-collector.logging.svc.cluster.local:4317", // 之後接你的 Collector Service
+		Insecure:    true,                                                                    // Collector 沒 TLS 就 true
 	})
 	if err != nil {
 		logger.Error(fmt.Sprintf("failed to init telemetry: %v", err))
