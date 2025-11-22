@@ -10,6 +10,8 @@ import (
 	"github.com/HarrisonZz/web_server_in_go/internal/handler"
 	"github.com/HarrisonZz/web_server_in_go/internal/logger"
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/exp/io/i2c"
 )
 
@@ -63,12 +65,22 @@ func probeI2CDevice(dev *i2c.Device) error {
 
 func ledHandler(c *gin.Context) {
 
+	span := trace.SpanFromContext(c.Request.Context())
+
+	span.SetAttributes(attribute.String("api.name", "led"))
+
 	switch c.Request.Method {
 	case http.MethodPost:
+		span.SetAttributes(attribute.String("led.action", "set"))
 		handleLedSet(c)
 	case http.MethodGet:
+		span.SetAttributes(attribute.String("led.action", "query"))
 		handleLedQuery(c)
 	default:
+		span.SetAttributes(
+			attribute.String("led.action", "unsupported_method"),
+			attribute.Int("http.status_code", http.StatusMethodNotAllowed),
+		)
 		c.JSON(http.StatusMethodNotAllowed, gin.H{"error": "method not supported"})
 	}
 
@@ -103,6 +115,7 @@ func handleLedQuery(c *gin.Context) {
 }
 
 func handleLedSet(c *gin.Context) {
+	span := trace.SpanFromContext(c.Request.Context())
 	start := time.Now()
 	var req struct {
 		State string `json:"state"`
@@ -150,6 +163,9 @@ func handleLedSet(c *gin.Context) {
 	defer mu.Unlock()
 
 	if err := i2cDev.WriteReg(LedCtrl, []byte{data}); err != nil {
+		span.AddEvent("i2c.write_error", trace.WithAttributes(
+			attribute.String("err", err.Error()),
+		))
 		logger.Error(fmt.Sprintf(
 			"[LED] WriteReg failed state=%s error=%v from=%s",
 			state,
